@@ -27,20 +27,47 @@ export default function Index() {
     return Math.round(loanAmount / loanTerm);
   };
 
-  const handleSubmitApplication = (e: React.FormEvent) => {
+  const handleSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Заявка отправлена!",
-      description: "Наш менеджер свяжется с вами в ближайшее время.",
-    });
-    setFormData({
-      fullName: '',
-      phone: '',
-      email: '',
-      amount: '',
-      term: '',
-      purpose: ''
-    });
+    
+    try {
+      const response = await fetch('https://functions.poehali.dev/37f37814-af8a-4c93-be84-7f929ee79fed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast({
+          title: "Заявка отправлена!",
+          description: "Наш менеджер свяжется с вами в ближайшее время.",
+        });
+        setFormData({
+          fullName: '',
+          phone: '',
+          email: '',
+          amount: '',
+          term: '',
+          purpose: ''
+        });
+      } else {
+        toast({
+          title: "Ошибка",
+          description: data.error || "Не удалось отправить заявку",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось подключиться к серверу",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
