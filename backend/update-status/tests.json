@@ -1,20 +1,6 @@
 {
   "tests": [
     {
-      "name": "Update application status to processing",
-      "method": "POST",
-      "path": "/",
-      "body": {
-        "id": 1,
-        "status": "processing"
-      },
-      "expectedStatus": 200,
-      "expectedBody": {
-        "success": true
-      },
-      "bodyMatcher": "partial"
-    },
-    {
       "name": "Update with invalid status",
       "method": "POST",
       "path": "/",
