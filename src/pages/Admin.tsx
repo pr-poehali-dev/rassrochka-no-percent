@@ -3,6 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,8 +29,31 @@ interface Application {
 
 export default function Admin() {
   const { toast } = useToast();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === 'XaNCda232$$') {
+      setIsAuthenticated(true);
+      localStorage.setItem('admin_auth', 'true');
+      fetchApplications();
+    } else {
+      toast({
+        title: "Ошибка",
+        description: "Неверный пароль",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('admin_auth');
+    setPassword('');
+  };
 
   const fetchApplications = async () => {
     try {
@@ -49,8 +81,50 @@ export default function Admin() {
     }
   };
 
+  const updateStatus = async (id: number, newStatus: string) => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/3e901587-4039-472b-b6cb-e8aa567067d5', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setApplications(applications.map(app => 
+          app.id === id ? { ...app, status: newStatus } : app
+        ));
+        toast({
+          title: "Успешно",
+          description: "Статус заявки изменён",
+        });
+      } else {
+        toast({
+          title: "Ошибка",
+          description: data.error || "Не удалось изменить статус",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось подключиться к серверу",
+        variant: "destructive"
+      });
+    }
+  };
+
   useEffect(() => {
-    fetchApplications();
+    const auth = localStorage.getItem('admin_auth');
+    if (auth === 'true') {
+      setIsAuthenticated(true);
+      fetchApplications();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const getStatusBadge = (status: string) => {
@@ -86,6 +160,41 @@ export default function Admin() {
     return amount ? amount.toLocaleString('ru-RU') + ' ₽' : '—';
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Icon name="Lock" size={48} className="mx-auto mb-4 text-primary" />
+            <CardTitle className="text-2xl">Вход в админ-панель</CardTitle>
+            <CardDescription>
+              Введите пароль для доступа к управлению заявками
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">Пароль</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Введите пароль"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                <Icon name="LogIn" className="mr-2" size={16} />
+                Войти
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
@@ -97,12 +206,18 @@ export default function Admin() {
               <p className="text-xs text-muted-foreground">ООО МФО "Рассрочка без процентов"</p>
             </div>
           </div>
-          <Button variant="outline" asChild>
-            <a href="/">
-              <Icon name="Home" className="mr-2" size={16} />
-              На главную
-            </a>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <a href="/">
+                <Icon name="Home" className="mr-2" size={16} />
+                На главную
+              </a>
+            </Button>
+            <Button variant="destructive" onClick={handleLogout}>
+              <Icon name="LogOut" className="mr-2" size={16} />
+              Выйти
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -149,7 +264,7 @@ export default function Admin() {
                         <TableHead className="text-right">Сумма</TableHead>
                         <TableHead className="text-center">Срок</TableHead>
                         <TableHead>Цель</TableHead>
-                        <TableHead className="text-center">Статус</TableHead>
+                        <TableHead className="text-center w-48">Статус</TableHead>
                         <TableHead>Дата</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -180,7 +295,40 @@ export default function Admin() {
                             {app.purpose || '—'}
                           </TableCell>
                           <TableCell className="text-center">
-                            {getStatusBadge(app.status)}
+                            <Select 
+                              value={app.status} 
+                              onValueChange={(value) => updateStatus(app.id, value)}
+                            >
+                              <SelectTrigger className="w-40">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="new">
+                                  <span className="flex items-center gap-2">
+                                    <Icon name="Circle" size={12} className="text-blue-500" />
+                                    Новая
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="processing">
+                                  <span className="flex items-center gap-2">
+                                    <Icon name="Clock" size={12} className="text-yellow-500" />
+                                    В обработке
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="approved">
+                                  <span className="flex items-center gap-2">
+                                    <Icon name="CheckCircle" size={12} className="text-green-500" />
+                                    Одобрено
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="rejected">
+                                  <span className="flex items-center gap-2">
+                                    <Icon name="XCircle" size={12} className="text-red-500" />
+                                    Отклонено
+                                  </span>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                             {formatDate(app.created_at)}
